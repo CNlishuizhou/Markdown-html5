@@ -1,0 +1,3465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown 编辑器</title>
+  <style>
+    :root {
+      --bg-color: #f5f5f5;
+      --bg-secondary: #fff;
+      --border-color: #e1e4e8;
+      --text-color: #24292e;
+      --text-secondary: #586069;
+      --button-bg: #f6f8fa;
+      --button-hover: #e1e4e8;
+      --primary-color: #0366d6;
+      --danger-color: #d73a49;
+      --success-color: #28a745;
+      --warning-color: #ffc107;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+      --line-number-bg: #fafbfc;
+      --line-number-color: #6a737d;
+      --quote-bg: #f6f8fa;
+      --quote-border: #dfe2e5;
+      --disabled-color: #6a737d;
+    }
+
+    .theme-dark {
+      --bg-color: #0d1117;
+      --bg-secondary: #161b22;
+      --border-color: #30363d;
+      --text-color: #c9d1d9;
+      --text-secondary: #8b949e;
+      --button-bg: #21262d;
+      --button-hover: #30363d;
+      --primary-color: #58a6ff;
+      --danger-color: #f85149;
+      --success-color: #3fb950;
+      --warning-color: #d29922;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --line-number-bg: #161b22;
+      --line-number-color: #6e7681;
+      --quote-bg: #161b22;
+      --quote-border: #30363d;
+      --disabled-color: #6e7681;
+    }
+
+    .theme-green {
+      --bg-color: #f0f4e8;
+      --bg-secondary: #fefffe;
+      --border-color: #c8d3b0;
+      --text-color: #2d3e2a;
+      --text-secondary: #4a5d47;
+      --button-bg: #e8f2dd;
+      --button-hover: #d4e6c1;
+      --primary-color: #2d8a3e;
+      --danger-color: #d4512b;
+      --success-color: #28a745;
+      --warning-color: #e6a23c;
+      --shadow: 0 1px 3px rgba(45, 62, 42, 0.1);
+      --line-number-bg: #e8f2dd;
+      --line-number-color: #6a8f5e;
+      --quote-bg: #e8f2dd;
+      --quote-border: #c8d3b0;
+      --disabled-color: #6a8f5e;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-color);
+      height: 100vh;
+      overflow: hidden;
+      color: var(--text-color);
+      transition: all 0.3s ease;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .toolbar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow);
+      position: relative;
+      z-index: 10;
+    }
+
+    .toolbar button, .toolbar select {
+      background: var(--button-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-color);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .toolbar button:hover, .toolbar select:hover {
+      background: var(--button-hover);
+    }
+
+    .toolbar button:disabled {
+      background: var(--button-bg);
+      color: var(--disabled-color);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .toolbar button:disabled:hover {
+      background: var(--button-bg);
+    }
+
+    .toolbar button.active {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+
+    .toolbar .success-btn {
+      background: var(--success-color);
+      color: white;
+      border-color: var(--success-color);
+    }
+
+    .toolbar .success-btn:hover {
+      background: color-mix(in srgb, var(--success-color) 80%, black);
+    }
+
+    .toolbar .danger-btn {
+      background: var(--danger-color);
+      color: white;
+      border-color: var(--danger-color);
+    }
+
+    .toolbar .danger-btn:hover {
+      background: color-mix(in srgb, var(--danger-color) 80%, black);
+    }
+
+    .divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .editor-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .editor-section.locked::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .editor-header {
+      background: var(--button-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .editor-container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .editor-locked-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.05);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 5;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .editor-locked-overlay.show {
+      display: flex;
+    }
+
+    .locked-message {
+      background: var(--bg-secondary);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      border: 1px solid var(--border-color);
+    }
+
+    .locked-message h3 {
+      margin-bottom: 8px;
+      color: var(--text-color);
+    }
+
+    .locked-message p {
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .line-numbers {
+      background: var(--line-number-bg);
+      border-right: 1px solid var(--border-color);
+      color: var(--line-number-color);
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      min-width: 50px;
+      text-align: right;
+      user-select: none;
+      overflow: hidden;
+      position: relative;
+      padding: 16px 8px 16px 8px;
+    }
+
+    .line-numbers .line-number {
+      cursor: pointer;
+      padding: 0 4px;
+      border-radius: 3px;
+      transition: background-color 0.2s;
+      height: 22.4px; /* 匹配编辑器行高 */
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .line-numbers .line-number:hover {
+      background: var(--button-hover);
+    }
+
+    .line-numbers .line-number.active {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .editor {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 16px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: none;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .editor:disabled {
+      background: var(--button-bg);
+      color: var(--disabled-color);
+      cursor: not-allowed;
+    }
+
+    .preview-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-secondary);
+      transition: all 0.3s ease;
+    }
+
+    .preview-section.hidden {
+      flex: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .preview-header {
+      background: var(--button-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .preview {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background: var(--bg-secondary);
+    }
+
+    /* 文件管理面板 */
+    .file-panel {
+      width: 280px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .file-panel.hidden {
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .file-panel-header {
+      background: var(--button-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .file-panel-controls {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    }
+
+    .file-panel-controls button {
+      padding: 4px 6px;
+      font-size: 12px;
+      border: 1px solid var(--border-color);
+      background: var(--button-bg);
+      color: var(--text-color);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-panel-controls button:hover {
+      background: var(--button-hover);
+    }
+
+    .current-file-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--button-bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .current-file-info .file-name {
+      color: var(--primary-color);
+      font-weight: bold;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .current-file-info .file-name.no-file {
+      color: var(--disabled-color);
+      font-style: italic;
+    }
+
+    .save-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+
+    .save-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+    }
+
+    .save-indicator.saved {
+      background: var(--success-color);
+    }
+
+    .save-indicator.unsaved {
+      background: var(--warning-color);
+    }
+
+    .save-indicator.saving {
+      background: var(--primary-color);
+      animation: pulse 1s infinite;
+    }
+
+    .save-indicator.closed {
+      background: var(--disabled-color);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* 搜索框 */
+    .search-container {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--button-bg);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 14px;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;
+      margin: 1px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .tree-item:hover {
+      background: var(--button-hover);
+    }
+
+    .tree-item.selected {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .tree-item.current {
+      background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .tree-item.search-result {
+      background: color-mix(in srgb, var(--warning-color) 20%, transparent);
+      border-left: 3px solid var(--warning-color);
+    }
+
+    .tree-indent {
+      display: inline-block;
+    }
+
+    .tree-toggle {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 4px;
+      border-radius: 2px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .tree-toggle:hover {
+      background: var(--button-hover);
+    }
+
+    .tree-toggle.expanded {
+      transform: rotate(90deg);
+    }
+
+    .tree-icon {
+      margin-right: 6px;
+      font-size: 14px;
+    }
+
+    .tree-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    /* 通知提示 */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px 16px;
+      box-shadow: var(--shadow);
+      z-index: 1001;
+      display: none;
+      max-width: 300px;
+    }
+
+    .notification.success {
+      border-left: 4px solid var(--success-color);
+    }
+
+    .notification.warning {
+      border-left: 4px solid var(--warning-color);
+    }
+
+    .notification.info {
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .notification.show {
+      display: block;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* 右键菜单 */
+    .context-menu {
+      position: fixed;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      z-index: 1000;
+      min-width: 150px;
+      display: none;
+    }
+
+    .context-menu-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-color);
+      transition: background-color 0.2s;
+    }
+
+    .context-menu-item:hover {
+      background: var(--button-hover);
+    }
+
+    .context-menu-item:first-child {
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+    }
+
+    .context-menu-item:last-child {
+      border-bottom-left-radius: 5px;
+      border-bottom-right-radius: 5px;
+    }
+
+    .context-menu-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 4px 0;
+    }
+
+    /* 跳转行功能 */
+    .goto-line {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+      z-index: 100;
+      width: 400px;
+    }
+
+    .goto-line .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .goto-line input {
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 10px 12px;
+      flex: 1;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+      font-size: 16px;
+    }
+
+    .goto-line .actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .goto-line button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .goto-line .close-text {
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 10px 16px;
+      font-size: 14px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      background: var(--button-bg);
+      border: 1px solid var(--border-color);
+    }
+
+    .goto-line .close-text:hover {
+      color: var(--text-color);
+      background: var(--button-hover);
+    }
+
+    /* 模态框样式 */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+      background-color: var(--bg-secondary);
+      margin: 5% auto;
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+      background: var(--button-bg);
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-header .modal-icon {
+      font-size: 20px;
+    }
+
+    .close {
+      color: var(--text-secondary);
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close:hover {
+      color: var(--text-color);
+    }
+
+    .modal-body {
+      padding: 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      background: var(--button-bg);
+      padding: 16px 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .modal-footer button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+      border: 1px solid var(--primary-color);
+    }
+
+    .btn-primary:hover {
+      background: color-mix(in srgb, var(--primary-color) 80%, black);
+    }
+
+    .btn-danger {
+      background: var(--danger-color);
+      color: white;
+      border: 1px solid var(--danger-color);
+    }
+
+    .btn-danger:hover {
+      background: color-mix(in srgb, var(--danger-color) 80%, black);
+    }
+
+    .btn-secondary {
+      background: var(--button-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: var(--button-hover);
+    }
+
+    /* 新建文件模态框 */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .quick-create-btn {
+      background: var(--success-color);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    .quick-create-btn:hover {
+      background: color-mix(in srgb, var(--success-color) 80%, black);
+    }
+
+    /* 搜索模态框 */
+    .search-modal-content {
+      width: 60%;
+      max-width: 600px;
+    }
+
+    .search-results {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-top: 16px;
+    }
+
+    .search-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .search-result-item:hover {
+      background: var(--button-hover);
+    }
+
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+
+    .search-result-name {
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 4px;
+    }
+
+    .search-result-path {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .search-result-preview {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      max-height: 40px;
+      overflow: hidden;
+      line-height: 1.3;
+    }
+
+    /* 表格编辑器样式优化 */
+    .table-controls {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 12px;
+      background: var(--button-bg);
+      border-radius: 6px;
+    }
+
+    .table-controls input, .table-controls select {
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+      font-size: 14px;
+    }
+
+    .table-controls button {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      color: var(--text-color);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .table-controls button:hover {
+      background: var(--button-hover);
+      transform: translateY(-1px);
+    }
+
+    .table-controls .btn-success {
+      background: var(--success-color);
+      color: white;
+      border-color: var(--success-color);
+    }
+
+    .table-controls .btn-warning {
+      background: var(--warning-color);
+      color: #212529;
+      border-color: var(--warning-color);
+    }
+
+    .table-controls .btn-danger {
+      background: var(--danger-color);
+      color: white;
+      border-color: var(--danger-color);
+    }
+
+    .table-editor {
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: auto;
+      max-height: 400px;
+    }
+
+    .table-editor table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table-editor th,
+    .table-editor td {
+      border: 1px solid var(--border-color);
+      padding: 8px;
+      min-width: 100px;
+      position: relative;
+    }
+
+    .table-editor th {
+      background: var(--button-bg);
+      font-weight: 600;
+    }
+
+    .table-editor tr:nth-child(even) td {
+      background: var(--button-bg);
+    }
+
+    .table-editor input {
+      width: 100%;
+      border: none;
+      outline: none;
+      padding: 4px;
+      background: transparent;
+      color: var(--text-color);
+    }
+
+    .table-editor input:focus {
+      background: var(--bg-secondary);
+      box-shadow: inset 0 0 0 2px var(--primary-color);
+      border-radius: 3px;
+    }
+
+    .paste-area {
+      margin-bottom: 16px;
+      padding: 16px;
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      text-align: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      background: var(--button-bg);
+      transition: all 0.2s;
+    }
+
+    .paste-area:hover {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+      background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+    }
+
+    /* 代码选择器优化 */
+    .code-selector {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--button-bg);
+      border-radius: 6px;
+    }
+
+    .code-selector label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .code-selector select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+      font-size: 14px;
+    }
+
+    .code-textarea {
+      width: 100%;
+      min-height: 300px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      resize: vertical;
+      background: var(--bg-secondary);
+      color: var(--text-color);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .theme-selector {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .theme-btn {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .theme-btn.light { background: #f5f5f5; }
+    .theme-btn.dark { background: #0d1117; }
+    .theme-btn.green { background: #f0f4e8; }
+
+    .theme-btn.active {
+      border-color: var(--primary-color);
+      transform: scale(1.1);
+    }
+
+    /* Markdown 样式 */
+    .preview h1, .preview h2, .preview h3, .preview h4, .preview h5, .preview h6 {
+      margin: 24px 0 16px 0;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text-color);
+    }
+
+    .preview h1 { font-size: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+    .preview h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+    .preview h3 { font-size: 1.25em; }
+    .preview h4 { font-size: 1em; }
+    .preview h5 { font-size: 0.875em; }
+    .preview h6 { font-size: 0.85em; color: var(--text-secondary); }
+
+    .preview p {
+      margin: 0 0 16px 0;
+      line-height: 1.6;
+      color: var(--text-color);
+    }
+
+    .preview ul, .preview ol {
+      margin: 0 0 16px 0;
+      padding-left: 2em;
+    }
+
+    .preview li {
+      margin: 0.25em 0;
+      color: var(--text-color);
+    }
+
+    .preview blockquote {
+      margin: 16px 0;
+      padding: 16px 20px;
+      background: var(--quote-bg);
+      border-left: 4px solid var(--primary-color);
+      border-radius: 0 6px 6px 0;
+      position: relative;
+      font-style: italic;
+      color: var(--text-secondary);
+    }
+
+    .preview blockquote::before {
+      content: '"';
+      font-size: 3em;
+      color: var(--primary-color);
+      position: absolute;
+      left: 8px;
+      top: -8px;
+      line-height: 1;
+      opacity: 0.3;
+    }
+
+    .preview blockquote p {
+      margin: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .preview blockquote p:last-child {
+      margin-bottom: 0;
+    }
+
+    .preview code {
+      background: var(--button-bg);
+      border-radius: 3px;
+      font-size: 85%;
+      margin: 0;
+      padding: 0.2em 0.4em;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      color: var(--text-color);
+    }
+
+    .preview pre {
+      background: var(--button-bg);
+      border-radius: 6px;
+      font-size: 85%;
+      line-height: 1.45;
+      overflow: auto;
+      padding: 16px;
+      margin: 0 0 16px 0;
+    }
+
+    .preview pre code {
+      background: transparent;
+      border: 0;
+      display: inline;
+      line-height: inherit;
+      margin: 0;
+      max-width: auto;
+      overflow: visible;
+      padding: 0;
+      word-wrap: normal;
+    }
+
+    .preview table {
+      border-collapse: collapse;
+      margin: 0 0 16px 0;
+      width: 100%;
+    }
+
+    .preview table th, .preview table td {
+      border: 1px solid var(--border-color);
+      padding: 6px 13px;
+    }
+
+    .preview table th {
+      background: var(--button-bg);
+      font-weight: 600;
+    }
+
+    .preview a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .preview a:hover {
+      text-decoration: underline;
+    }
+
+    .preview img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .preview hr {
+      border: none;
+      height: 0.25em;
+      background: var(--border-color);
+      margin: 24px 0;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 1024px) {
+      .file-panel {
+        width: 250px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        flex-direction: column;
+      }
+
+      .editor-section {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .preview-section.hidden, .file-panel.hidden {
+        display: none;
+      }
+
+      .toolbar {
+        padding: 8px 12px;
+      }
+
+      .toolbar button {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+
+      .modal-content {
+        width: 95%;
+        margin: 2% auto;
+      }
+
+      .file-panel {
+        width: 100%;
+        position: absolute;
+        right: 0;
+        top: 0;
+        height: 100%;
+        z-index: 100;
+      }
+
+      .line-numbers {
+        min-width: 40px;
+        padding: 16px 4px;
+      }
+
+      .notification {
+        right: 10px;
+        max-width: 250px;
+      }
+    }
+
+    /* 移动文件夹选择列表样式 */
+    .folder-item {
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 2px 0;
+      transition: all 0.2s;
+    }
+
+    .folder-item:hover {
+      background: var(--button-hover);
+    }
+
+    .folder-item.selected {
+      background: var(--primary-color);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="toolbar">
+    <button onclick="openNewFileModal()" title="新建文档 (Ctrl+N)" class="success-btn">
+      📝 新建
+    </button>
+    <button onclick="closeCurrentFile()" title="关闭当前文件" class="danger-btn" id="closeFileBtn" disabled>
+      ❌ 关闭
+    </button>
+
+    <div class="divider"></div>
+
+    <button onclick="insertMarkdown('**', '**')" title="粗体 (Ctrl+B)" id="boldBtn">
+      <strong>B</strong>
+    </button>
+    <button onclick="insertMarkdown('*', '*')" title="斜体 (Ctrl+I)" id="italicBtn">
+      <em>I</em>
+    </button>
+    <button onclick="insertMarkdown('~~', '~~')" title="删除线" id="strikeBtn">
+      <s>S</s>
+    </button>
+    <button onclick="insertMarkdown('`', '`')" title="行内代码" id="codeBtn">
+      &lt;/&gt;
+    </button>
+
+    <div class="divider"></div>
+
+    <button onclick="insertHeading(1)" title="标题 1" id="h1Btn">H1</button>
+    <button onclick="insertHeading(2)" title="标题 2" id="h2Btn">H2</button>
+    <button onclick="insertHeading(3)" title="标题 3" id="h3Btn">H3</button>
+
+    <div class="divider"></div>
+
+    <button onclick="insertSmartList('- ')" title="无序列表" id="ulBtn">• 列表</button>
+    <button onclick="insertSmartList('1. ')" title="有序列表" id="olBtn">1. 列表</button>
+    <button onclick="insertQuote()" title="引用" id="quoteBtn">❝ 引用</button>
+    <button onclick="insertDivider()" title="分割线" id="dividerBtn">-- 分割线</button>
+
+    <div class="divider"></div>
+
+    <button onclick="insertLink()" title="链接" id="linkBtn">🔗 链接</button>
+    <button onclick="insertImage()" title="图片" id="imageBtn">🖼️ 图片</button>
+    <button onclick="openTableEditor()" title="表格编辑器" id="tableBtn">📊 表格</button>
+    <button onclick="openCodeBlock()" title="代码编辑器" id="codeBlockBtn">💻 代码</button>
+
+    <div class="divider"></div>
+
+    <button onclick="showGotoLine()" title="跳转到行 (Ctrl+G)" id="gotoBtn">🎯 跳转行</button>
+    <button onclick="confirmClearEditor()" title="清空编辑器 (Ctrl+Alt+C)" class="danger-btn" id="clearBtn">🗑️ 清空</button>
+
+    <div class="divider"></div>
+
+    <div class="theme-selector">
+      <span style="font-size: 12px; margin-right: 4px;">主题:</span>
+      <div class="theme-btn light" onclick="setTheme('light')" title="浅色模式"></div>
+      <div class="theme-btn dark" onclick="setTheme('dark')" title="深色模式"></div>
+      <div class="theme-btn green" onclick="setTheme('green')" title="豆沙绿"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button onclick="document.getElementById('fileInput').click()" title="打开文件">📁 打开</button>
+    <button onclick="saveFile()" title="保存文件 (Ctrl+S)" id="saveBtn">💾 保存</button>
+    <button id="togglePreview" onclick="togglePreview()" title="切换预览">👁️ 预览</button>
+    <button id="toggleFilePanel" onclick="toggleFilePanel()" title="文件管理">📂 文件</button>
+
+    <input type="file" id="fileInput" class="file-input" accept=".md,.txt" onchange="loadFile(event)">
+
+    <div class="goto-line" id="gotoLine">
+      <div class="input-group">
+        <input type="number" id="gotoLineInput" placeholder="行号" min="1">
+        <button onclick="gotoLine()">跳转</button>
+        <span class="close-text" onclick="hideGotoLine()">关闭</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="editor-section" id="editorSection">
+      <div class="editor-header">
+        <span>编辑器</span>
+        <span style="font-size: 12px;">行: <span id="currentLine">1</span> | 列: <span id="currentCol">1</span> | 字数: <span id="wordCount">0</span></span>
+      </div>
+      <div class="editor-container">
+        <div class="line-numbers" id="lineNumbers"></div>
+        <textarea id="editor" class="editor" placeholder="在这里输入 Markdown 内容...">
+# 欢迎使用增强版 Markdown 编辑器
+
+这是一个功能全面的 **Markdown 编辑器**，现在支持更多高级功能！
+
+## 🚀 新增功能
+
+- ✅ **智能新建**：选择文件夹后输入文件名或快速创建
+- ✅ **文件搜索**：模态搜索快速查找文件
+- ✅ **目录树优化**：缩进展示文件夹层次结构
+- ✅ **文件夹移动**：支持文件夹的移动操作
+- ✅ **临时文件夹**：自动创建临时文件存放区
+
+## ⌨️ 快捷键
+
+- **Ctrl+N**: 新建文档
+- **Ctrl+F**: 搜索文件
+- **Ctrl+B**: 粗体
+- **Ctrl+I**: 斜体
+- **Ctrl+S**: 保存文件
+- **Ctrl+G**: 跳转到指定行
+
+## 📁 文件管理增强
+
+### 智能新建
+1. 点击"📝 新建"按钮
+2. 选择目标文件夹
+3. 输入文件名或点击"⚡ 快速创建"
+
+### 文件搜索
+- 使用搜索框或快捷键 Ctrl+F
+- 输入关键词搜索文件名和内容
+- 点击搜索结果直接打开文件
+
+### 目录树结构
+```
+📁 我的文档
+  ├── 📄 工作笔记.md
+  ├── 📁 项目文档
+  │   ├── 📄 需求分析.md
+  │   └── 📄 技术方案.md
+  └── 📁 临时文件
+      └── 📄 临时文件1.md
+```
+
+## 📊 序号列表演示
+
+1. 第一项内容
+2. 第二项内容
+3. 第三项内容
+   1. 子项目 1
+   2. 子项目 2
+
+## 📝 引用效果演示
+
+> 这是一个增强的引用块示例
+> 现在具有更好的视觉效果
+>
+> 支持多段落引用内容
+
+> 💡 提示：所有功能都已经过优化，提供更好的用户体验！
+
+---
+
+尝试点击"📝 新建"按钮体验新的文件创建流程！
+使用搜索功能快速查找您的文件！
+                    </textarea>
+        <div class="editor-locked-overlay" id="editorLockedOverlay">
+          <div class="locked-message">
+            <h3>🔒 编辑器已锁定</h3>
+            <p>当前没有打开的文件。请新建文档或打开现有文件来开始编辑。</p>
+            <button onclick="openNewFileModal()" class="btn-primary">📝 新建文档</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="previewSection" class="preview-section">
+      <div class="preview-header">预览</div>
+      <div id="preview" class="preview"></div>
+    </div>
+
+    <div id="filePanel" class="file-panel">
+      <div class="file-panel-header">
+        文件管理
+        <div class="file-panel-controls">
+          <button onclick="openSearchModal()" title="搜索文件 (Ctrl+F)">🔍</button>
+          <button onclick="createFolder()" title="新建文件夹">📁</button>
+          <button onclick="exportData()" title="导出数据">📤</button>
+          <button onclick="importData()" title="导入数据">📥</button>
+        </div>
+      </div>
+      <div class="current-file-info" id="currentFileInfo">
+        <div>
+          <div style="font-size: 10px; color: var(--text-secondary);">当前文件:</div>
+          <div class="file-name">临时文件</div>
+        </div>
+        <div class="save-status">
+          <div class="save-indicator saved" id="saveIndicator"></div>
+          <span id="saveStatusText">临时文件</span>
+        </div>
+      </div>
+      <div class="search-container">
+        <input type="text" class="search-input" id="quickSearch" placeholder="快速搜索文件..." oninput="quickSearchFiles()">
+      </div>
+      <div id="fileTree" class="file-tree"></div>
+      <input type="file" id="importInput" class="file-input" accept=".json" onchange="handleImport(event)">
+    </div>
+  </div>
+</div>
+
+<!-- 通知提示 -->
+<div id="notification" class="notification">
+  <div id="notificationContent"></div>
+</div>
+
+<!-- 右键菜单 -->
+<div id="contextMenu" class="context-menu">
+  <div class="context-menu-item" onclick="openSelectedFile()">📖 打开文件</div>
+  <div class="context-menu-item" onclick="renameFile()">✏️ 重命名</div>
+  <div class="context-menu-item" onclick="moveFile()">📁 移动</div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" onclick="deleteFileConfirm()" style="color: var(--danger-color);">🗑️ 删除</div>
+</div>
+
+<!-- 新建文件模态框 -->
+<div id="newFileModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><span class="modal-icon">📝</span>新建文档</h3>
+      <span class="close" onclick="closeNewFileModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="parentFolder">选择文件夹:</label>
+        <select id="parentFolder">
+          <option value="">根目录</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="fileName">文件名:
+          <button class="quick-create-btn" onclick="quickCreateFile()">⚡ 快速创建</button>
+        </label>
+        <input type="text" id="fileName" placeholder="请输入文件名（不含扩展名）">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeNewFileModal()">取消</button>
+      <button class="btn-primary" onclick="createNewFile()">📝 创建文档</button>
+    </div>
+  </div>
+</div>
+
+<!-- 搜索模态框 -->
+<div id="searchModal" class="modal">
+  <div class="modal-content search-modal-content">
+    <div class="modal-header">
+      <h3><span class="modal-icon">🔍</span>搜索文件</h3>
+      <span class="close" onclick="closeSearchModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <input type="text" id="searchInput" placeholder="搜索文件名或内容..." oninput="performSearch()">
+      </div>
+      <div id="searchResults" class="search-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 表格编辑器模态框 -->
+<div id="tableModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><span class="modal-icon">📊</span>高级表格编辑器</h3>
+      <span class="close" onclick="closeTableModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="paste-area" onclick="focusPasteArea()" id="pasteArea">
+        <div style="font-size: 16px; margin-bottom: 8px;">📋 Excel 数据导入</div>
+        <div>从 Excel 复制表格数据，然后点击这里粘贴</div>
+        <textarea id="pasteInput" style="opacity: 0; position: absolute; left: -9999px;"></textarea>
+      </div>
+
+      <div class="table-controls">
+        <label>📏 行数: <input type="number" id="tableRows" value="3" min="1" max="20"></label>
+        <label>📐 列数: <input type="number" id="tableCols" value="3" min="1" max="10"></label>
+        <button onclick="generateTable()" class="btn-success">🔄 生成表格</button>
+        <label>
+          <input type="checkbox" id="alternateRows" checked> 🎨 隔行变色
+        </label>
+        <button onclick="addTableRow()" class="btn-success">➕ 添加行</button>
+        <button onclick="addTableCol()" class="btn-success">➕ 添加列</button>
+        <button onclick="clearTable()" class="btn-warning">🧹 清空内容</button>
+        <button onclick="resetTable()" class="btn-danger">🗑️ 重置表格</button>
+      </div>
+      <div id="tableEditor" class="table-editor"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeTableModal()">取消</button>
+      <button class="btn-primary" onclick="insertTableFromEditor()">📊 插入表格</button>
+    </div>
+  </div>
+</div>
+
+<!-- 代码块模态框 -->
+<div id="codeModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><span class="modal-icon">💻</span>高级代码编辑器</h3>
+      <span class="close" onclick="closeCodeModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="code-selector">
+        <label for="codeLanguage">🔤 选择编程语言:</label>
+        <select id="codeLanguage">
+          <option value="">无语言</option>
+          <option value="javascript">JavaScript</option>
+          <option value="vue">Vue.js</option>
+          <option value="php">PHP</option>
+          <option value="python">Python</option>
+          <option value="json">JSON</option>
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="java">Java</option>
+          <option value="cpp">C++</option>
+          <option value="csharp">C#</option>
+          <option value="go">Go</option>
+          <option value="rust">Rust</option>
+          <option value="typescript">TypeScript</option>
+          <option value="sql">SQL</option>
+          <option value="bash">Bash</option>
+          <option value="xml">XML</option>
+          <option value="yaml">YAML</option>
+          <option value="markdown">Markdown</option>
+        </select>
+      </div>
+      <textarea id="codeContent" class="code-textarea" placeholder="在这里输入代码...
+
+💡 提示:
+- 支持语法高亮
+- 自动缩进
+- 代码补全"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeCodeModal()">取消</button>
+      <button class="btn-primary" onclick="insertCodeFromModal()">💻 插入代码</button>
+    </div>
+  </div>
+</div>
+
+<!-- 移动文件模态框 -->
+<div id="moveFileModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><span class="modal-icon">📁</span>移动文件</h3>
+      <span class="close" onclick="closeMoveFileModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom: 16px;">
+        <strong>移动项目:</strong> <span id="moveItemName"></span>
+      </div>
+      <div style="margin-bottom: 16px;">
+        选择目标文件夹：
+      </div>
+      <div id="folderList" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeMoveFileModal()">取消</button>
+      <button class="btn-primary" onclick="confirmMoveFile()">📁 移动</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // IndexedDB 管理类
+  class FileManager {
+    constructor() {
+      this.dbName = 'MarkdownEditor';
+      this.version = 1;
+      this.db = null;
+      this.init();
+    }
+
+    async init() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(this.dbName, this.version);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve();
+        };
+
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+
+          if (!db.objectStoreNames.contains('files')) {
+            const store = db.createObjectStore('files', { keyPath: 'id' });
+            store.createIndex('parentId', 'parentId', { unique: false });
+          }
+        };
+      });
+    }
+
+    async saveFile(file) {
+      const transaction = this.db.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+      return store.put(file);
+    }
+
+    async getFiles() {
+      const transaction = this.db.transaction(['files'], 'readonly');
+      const store = transaction.objectStore('files');
+      return new Promise((resolve) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+      });
+    }
+
+    async deleteFile(id) {
+      const transaction = this.db.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+      return store.delete(id);
+    }
+
+    generateId() {
+      return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+  }
+
+  // 改进的 Markdown 解析器
+  class MarkdownParser {
+    parse(markdown) {
+      let html = markdown;
+
+      // 转义 HTML 特殊字符 (在代码块之前)
+      const codeBlocks = [];
+      const inlineCodes = [];
+
+      // 先提取代码块，避免被转义
+      html = html.replace(/```[\s\S]*?```/g, function(match, offset) {
+        const index = codeBlocks.length;
+        codeBlocks.push(match);
+        return `__CODEBLOCK_${index}__`;
+      });
+
+      // 提取行内代码
+      html = html.replace(/`[^`\n]+`/g, function(match, offset) {
+        const index = inlineCodes.length;
+        inlineCodes.push(match);
+        return `__INLINECODE_${index}__`;
+      });
+
+      // 转义 HTML 标签
+      html = html.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+
+      // 处理代码块 - 转义内容
+      html = html.replace(/__CODEBLOCK_(\d+)__/g, function(match, index) {
+        const codeBlock = codeBlocks[index];
+        const match2 = codeBlock.match(/```(\w*)\n?([\s\S]*?)```/);
+        if (match2) {
+          const language = match2[1] || '';
+          let code = match2[2];
+          // 再次转义代码块内容，防止HTML注入
+          code = code.replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+          return `<pre><code class="language-${language}">${code}</code></pre>`;
+        }
+        return codeBlock;
+      });
+
+      // 处理行内代码 - 转义内容
+      html = html.replace(/__INLINECODE_(\d+)__/g, function(match, index) {
+        const inlineCode = inlineCodes[index];
+        let code = inlineCode.slice(1, -1); // 移除 `
+        // 转义行内代码内容
+        code = code.replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        return `<code>${code}</code>`;
+      });
+
+      // 标题
+      html = html.replace(/^######\s+(.*$)/gm, '<h6>$1</h6>');
+      html = html.replace(/^#####\s+(.*$)/gm, '<h5>$1</h5>');
+      html = html.replace(/^####\s+(.*$)/gm, '<h4>$1</h4>');
+      html = html.replace(/^###\s+(.*$)/gm, '<h3>$1</h3>');
+      html = html.replace(/^##\s+(.*$)/gm, '<h2>$1</h2>');
+      html = html.replace(/^#\s+(.*$)/gm, '<h1>$1</h1>');
+
+      // 粗体和斜体
+      html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+      // 删除线
+      html = html.replace(/~~(.*?)~~/g, '<s>$1</s>');
+
+      // 链接
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+      // 图片
+      html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+
+      // 水平线
+      html = html.replace(/^---+$/gm, '<hr>');
+
+      // 引用 - 增强处理
+      html = html.replace(/^>\s+(.*$)/gm, function(match, content) {
+        return `<blockquote><p>${content}</p></blockquote>`;
+      });
+
+      // 合并连续的引用
+      html = html.replace(/(<\/blockquote>\s*<blockquote>)/g, '');
+
+      // 表格 - 改进的正则表达式
+      html = html.replace(/^\|(.+)\|[ \t]*\n\|(.+)\|[ \t]*\n((?:\|.+\|[ \t]*(?:\n|$))+)/gm, function(match, header, separator, rows) {
+        // 处理表头
+        const headerCells = header.split('|')
+                .map(cell => cell.trim())
+                .filter(cell => cell)
+                .map(cell => `<th>${cell}</th>`)
+                .join('');
+
+        // 处理表格行
+        const tableRows = rows.trim().split('\n')
+                .map(row => {
+                  const cells = row.split('|')
+                          .map(cell => cell.trim())
+                          .filter(cell => cell)
+                          .map(cell => `<td>${cell}</td>`)
+                          .join('');
+                  return `<tr>${cells}</tr>`;
+                })
+                .join('');
+
+        return `<table><thead><tr>${headerCells}</tr></thead><tbody>${tableRows}</tbody></table>`;
+      });
+
+      // 列表处理
+      const lines = html.split('\n');
+      let inOrderedList = false;
+      let inUnorderedList = false;
+      let result = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        // 有序列表
+        if (/^\d+\.\s+/.test(line)) {
+          if (!inOrderedList) {
+            if (inUnorderedList) {
+              result.push('</ul>');
+              inUnorderedList = false;
+            }
+            result.push('<ol>');
+            inOrderedList = true;
+          }
+          line = line.replace(/^\d+\.\s+/, '<li>') + '</li>';
+        }
+        // 无序列表
+        else if (/^[-*+]\s+/.test(line)) {
+          if (!inUnorderedList) {
+            if (inOrderedList) {
+              result.push('</ol>');
+              inOrderedList = false;
+            }
+            result.push('<ul>');
+            inUnorderedList = true;
+          }
+          line = line.replace(/^[-*+]\s+/, '<li>') + '</li>';
+        }
+        // 非列表行
+        else {
+          if (inOrderedList) {
+            result.push('</ol>');
+            inOrderedList = false;
+          }
+          if (inUnorderedList) {
+            result.push('</ul>');
+            inUnorderedList = false;
+          }
+        }
+
+        result.push(line);
+      }
+
+      // 关闭未闭合的列表
+      if (inOrderedList) result.push('</ol>');
+      if (inUnorderedList) result.push('</ul>');
+
+      html = result.join('\n');
+
+      // 段落处理
+      html = html.replace(/\n\s*\n/g, '</p><p>');
+      html = '<p>' + html + '</p>';
+
+      // 清理
+      html = html.replace(/<p><\/p>/g, '');
+      html = html.replace(/<p>(<h[1-6]>)/g, '$1');
+      html = html.replace(/(<\/h[1-6]>)<\/p>/g, '$1');
+      html = html.replace(/<p>(<ul>|<ol>|<blockquote>|<pre>|<table>|<hr>)/g, '$1');
+      html = html.replace(/(<\/ul>|<\/ol>|<\/blockquote>|<\/pre>|<\/table>|<hr>)<\/p>/g, '$1');
+      html = html.replace(/<p>(<li>)/g, '$1');
+      html = html.replace(/(<\/li>)<\/p>/g, '$1');
+
+      // 换行
+      html = html.replace(/\n/g, '<br>');
+
+      return html;
+    }
+  }
+
+  // 全局变量
+  const parser = new MarkdownParser();
+  const fileManager = new FileManager();
+  const editor = document.getElementById('editor');
+  const preview = document.getElementById('preview');
+  const previewSection = document.getElementById('previewSection');
+  const filePanel = document.getElementById('filePanel');
+  const togglePreviewButton = document.getElementById('togglePreview');
+  const toggleFilePanelButton = document.getElementById('toggleFilePanel');
+  const lineNumbers = document.getElementById('lineNumbers');
+
+  let previewVisible = true;
+  let filePanelVisible = true;
+  let currentFileId = null;
+  let currentFileName = '临时文件';
+  let currentTheme = 'light';
+  let saveStatus = 'saved'; // 'saved', 'unsaved', 'saving', 'closed'
+  let selectedFileForContext = null;
+  let selectedFolderForMove = null;
+  let autoSaveTimeout = null;
+  let isEditorLocked = false;
+  let tempFileCounter = 1;
+  let tempFolderId = null;
+  let allFiles = [];
+  let expandedFolders = new Set(); // 追踪展开的文件夹
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', async function() {
+    await fileManager.init();
+    await ensureTempFolder();
+    updatePreview();
+    updateLineNumbers();
+    updateFileInfo();
+    updateSaveStatus();
+    loadFileTree();
+    loadTheme();
+    updateThemeButtons();
+    updateStatusBar();
+    updateToolbarState();
+
+    // 默认是临时文件状态
+    markAsTempFile();
+
+    // 同步滚动
+    editor.addEventListener('scroll', syncLineNumbers);
+  });
+
+  // 修复滚动同步
+  function syncLineNumbers() {
+    lineNumbers.scrollTop = editor.scrollTop;
+  }
+
+  // 修复行号更新
+  function updateLineNumbers() {
+    const lines = editor.value.split('\n');
+    const lineNumberElements = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineDiv = document.createElement('div');
+      lineDiv.className = 'line-number';
+      lineDiv.textContent = i + 1;
+      lineDiv.onclick = () => gotoSpecificLine(i + 1);
+      lineNumberElements.push(lineDiv);
+    }
+
+    lineNumbers.innerHTML = '';
+    lineNumberElements.forEach(el => lineNumbers.appendChild(el));
+  }
+
+  // 确保临时文件夹存在
+  async function ensureTempFolder() {
+    const files = await fileManager.getFiles();
+    let tempFolder = files.find(f => f.type === 'folder' && f.name === '临时文件');
+
+    if (!tempFolder) {
+      tempFolder = {
+        id: fileManager.generateId(),
+        name: '临时文件',
+        type: 'folder',
+        parentId: null,
+        createdAt: new Date().toISOString()
+      };
+      await fileManager.saveFile(tempFolder);
+    }
+
+    tempFolderId = tempFolder.id;
+  }
+
+  // 智能列表插入 - 修复版本
+  function getSmartListNumber(prefix) {
+    const cursorPos = editor.selectionStart;
+    const textBeforeCursor = editor.value.substring(0, cursorPos);
+    const lines = textBeforeCursor.split('\n');
+
+    // 找到前一行
+    for (let i = lines.length - 2; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      if (prefix.includes('.')) {
+        // 有序列表
+        const match = line.match(/^(\d+(?:\.\d+)*)\.\s/);
+        if (match) {
+          const numbers = match[1].split('.');
+          // 递增最后一个数字
+          numbers[numbers.length - 1] = (parseInt(numbers[numbers.length - 1]) + 1).toString();
+          return numbers.join('.') + '. ';
+        }
+      } else {
+        // 无序列表
+        const match = line.match(/^([-*+])\s/);
+        if (match) {
+          return match[1] + ' ';
+        }
+      }
+      break;
+    }
+
+    return prefix;
+  }
+
+  function insertSmartList(prefix) {
+    const smartPrefix = getSmartListNumber(prefix);
+    insertAtLineStart(smartPrefix);
+  }
+
+  // 智能标题插入 - 新增功能
+  function getSmartHeadingText(level) {
+    const cursorPos = editor.selectionStart;
+    const textBeforeCursor = editor.value.substring(0, cursorPos);
+    const lines = textBeforeCursor.split('\n');
+
+    // 查找同级别的标题
+    const headingPrefix = '#'.repeat(level);
+    let lastNumber = 0;
+
+    for (let i = lines.length - 2; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // 匹配同级别标题
+      const match = line.match(new RegExp(`^${headingPrefix}\\s+(\\d+)(?:\\.|\\s|$)`));
+      if (match) {
+        lastNumber = parseInt(match[1]);
+        break;
+      }
+
+      // 如果遇到更高级别的标题，停止搜索
+      const higherLevelMatch = line.match(/^(#{1,6})\s/);
+      if (higherLevelMatch && higherLevelMatch[1].length < level) {
+        break;
+      }
+    }
+
+    return `${headingPrefix} ${lastNumber + 1}. `;
+  }
+
+  function insertHeading(level) {
+    if (isEditorLocked) return;
+    const smartPrefix = getSmartHeadingText(level);
+    insertAtLineStart(smartPrefix);
+  }
+
+  // 文件锁定管理
+  function lockEditor() {
+    isEditorLocked = true;
+    editor.disabled = true;
+    document.getElementById('editorLockedOverlay').classList.add('show');
+    document.getElementById('editorSection').classList.add('locked');
+    updateToolbarState();
+    saveStatus = 'closed';
+    updateSaveStatus();
+  }
+
+  function unlockEditor() {
+    isEditorLocked = false;
+    editor.disabled = false;
+    document.getElementById('editorLockedOverlay').classList.remove('show');
+    document.getElementById('editorSection').classList.remove('locked');
+    updateToolbarState();
+  }
+
+  function updateToolbarState() {
+    const buttons = [
+      'boldBtn', 'italicBtn', 'strikeBtn', 'codeBtn',
+      'h1Btn', 'h2Btn', 'h3Btn',
+      'ulBtn', 'olBtn', 'quoteBtn', 'dividerBtn',
+      'linkBtn', 'imageBtn', 'tableBtn', 'codeBlockBtn',
+      'gotoBtn', 'clearBtn'
+    ];
+
+    buttons.forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = isEditorLocked;
+      }
+    });
+
+    // 保存按钮状态
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+      saveBtn.disabled = isEditorLocked || saveStatus === 'closed';
+    }
+
+    // 关闭按钮状态
+    const closeBtn = document.getElementById('closeFileBtn');
+    if (closeBtn) {
+      closeBtn.disabled = saveStatus === 'closed';
+    }
+  }
+
+  // 临时文件管理
+  function markAsTempFile() {
+    currentFileId = null;
+    currentFileName = `临时文件${tempFileCounter}`;
+    saveStatus = 'unsaved';
+    updateFileInfo();
+    updateSaveStatus();
+    updateToolbarState();
+  }
+
+  function createTempFileIfNeeded() {
+    if (!currentFileId && editor.value.trim()) {
+      tempFileCounter++;
+      markAsTempFile();
+      showNotification('📝 已创建临时文件保存内容', 'info');
+    }
+  }
+
+  // 关闭当前文件
+  async function closeCurrentFile() {
+    if (saveStatus === 'closed') return;
+
+    // 如果有未保存的内容
+    if (saveStatus === 'unsaved' && editor.value.trim()) {
+      if (confirm('文件有未保存的更改，是否保存？')) {
+        if (currentFileId) {
+          await saveCurrentFile();
+        } else {
+          // 临时文件需要另存
+          await saveFile();
+          if (saveStatus === 'unsaved') {
+            // 用户取消了保存
+            return;
+          }
+        }
+      }
+    }
+
+    // 清空编辑器并锁定
+    editor.value = '';
+    currentFileId = null;
+    currentFileName = '无文件';
+
+    lockEditor();
+    updatePreview();
+    updateLineNumbers();
+    updateFileInfo();
+    loadFileTree();
+
+    showNotification('❌ 文件已关闭', 'info');
+  }
+
+  // 通知系统
+  function showNotification(message, type = 'info', duration = 3000) {
+    const notification = document.getElementById('notification');
+    const content = document.getElementById('notificationContent');
+
+    content.textContent = message;
+    notification.className = `notification ${type} show`;
+
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, duration);
+  }
+
+  // 新建文档相关
+  function openNewFileModal() {
+    loadFolderOptions();
+    document.getElementById('newFileModal').style.display = 'block';
+    document.getElementById('fileName').focus();
+  }
+
+  function closeNewFileModal() {
+    document.getElementById('newFileModal').style.display = 'none';
+    document.getElementById('fileName').value = '';
+    document.getElementById('parentFolder').value = '';
+  }
+
+  async function loadFolderOptions() {
+    const files = await fileManager.getFiles();
+    const folders = files.filter(f => f.type === 'folder');
+    const select = document.getElementById('parentFolder');
+
+    select.innerHTML = '<option value="">根目录</option>';
+
+    folders.forEach(folder => {
+      const option = document.createElement('option');
+      option.value = folder.id;
+      option.textContent = folder.name;
+      select.appendChild(option);
+    });
+  }
+
+  function quickCreateFile() {
+    const now = new Date();
+    const timestamp = now.getFullYear() +
+            String(now.getMonth() + 1).padStart(2, '0') +
+            String(now.getDate()).padStart(2, '0') + '_' +
+            String(now.getHours()).padStart(2, '0') +
+            String(now.getMinutes()).padStart(2, '0') +
+            String(now.getSeconds()).padStart(2, '0');
+
+    const fileName = `文档_${timestamp}`;
+    document.getElementById('fileName').value = fileName;
+    document.getElementById('parentFolder').value = tempFolderId;
+  }
+
+  async function createNewFile() {
+    const fileName = document.getElementById('fileName').value.trim();
+    const parentFolderId = document.getElementById('parentFolder').value || null;
+
+    if (!fileName) {
+      alert('请输入文件名');
+      return;
+    }
+
+    // 如果有未保存的内容，先保存
+    if (currentFileId && saveStatus === 'unsaved') {
+      if (confirm('当前文档有未保存的更改，是否保存？')) {
+        await saveCurrentFile();
+      }
+    }
+
+    // 解锁编辑器
+    unlockEditor();
+
+    // 创建新文件
+    const file = {
+      id: fileManager.generateId(),
+      name: fileName.endsWith('.md') ? fileName : fileName + '.md',
+      type: 'file',
+      parentId: parentFolderId,
+      content: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await fileManager.saveFile(file);
+
+    // 设置为当前文件
+    editor.value = '';
+    currentFileId = file.id;
+    currentFileName = file.name;
+    saveStatus = 'saved';
+
+    updatePreview();
+    updateLineNumbers();
+    updateStatusBar();
+    updateFileInfo();
+    updateSaveStatus();
+    updateToolbarState();
+    loadFileTree();
+
+    editor.focus();
+    closeNewFileModal();
+    showNotification(`📝 文档 "${file.name}" 创建成功！`, 'success');
+  }
+
+  // 搜索功能
+  function openSearchModal() {
+    document.getElementById('searchModal').style.display = 'block';
+    document.getElementById('searchInput').focus();
+  }
+
+  function closeSearchModal() {
+    document.getElementById('searchModal').style.display = 'none';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+  }
+
+  async function performSearch() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('searchResults');
+
+    if (!query) {
+      resultsContainer.innerHTML = '';
+      return;
+    }
+
+    const files = await fileManager.getFiles();
+    const results = files.filter(file => {
+      if (file.type !== 'file') return false;
+
+      const nameMatch = file.name.toLowerCase().includes(query);
+      const contentMatch = file.content && file.content.toLowerCase().includes(query);
+
+      return nameMatch || contentMatch;
+    });
+
+    if (results.length === 0) {
+      resultsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">未找到匹配的文件</div>';
+      return;
+    }
+
+    resultsContainer.innerHTML = results.map(file => {
+      const folderPath = getFolderPath(file.parentId, files);
+      const preview = file.content ? file.content.substring(0, 100) + (file.content.length > 100 ? '...' : '') : '空文件';
+
+      return `
+                    <div class="search-result-item" onclick="openSearchResult('${file.id}')">
+                        <div class="search-result-name">${file.name}</div>
+                        <div class="search-result-path">${folderPath}</div>
+                        <div class="search-result-preview">${preview}</div>
+                    </div>
+                `;
+    }).join('');
+  }
+
+  function getFolderPath(parentId, files) {
+    if (!parentId) return '根目录';
+
+    const folder = files.find(f => f.id === parentId);
+    if (!folder) return '根目录';
+
+    const parentPath = getFolderPath(folder.parentId, files);
+    return parentPath === '根目录' ? folder.name : `${parentPath} / ${folder.name}`;
+  }
+
+  async function openSearchResult(fileId) {
+    const files = await fileManager.getFiles();
+    const file = files.find(f => f.id === fileId);
+
+    if (file) {
+      await loadFileContent(file);
+      closeSearchModal();
+    }
+  }
+
+  // 快速搜索功能
+  async function quickSearchFiles() {
+    const query = document.getElementById('quickSearch').value.trim().toLowerCase();
+
+    if (!query) {
+      loadFileTree();
+      return;
+    }
+
+    const files = await fileManager.getFiles();
+    const results = files.filter(file => {
+      if (file.type !== 'file') return false;
+      return file.name.toLowerCase().includes(query);
+    });
+
+    // 高亮搜索结果
+    document.querySelectorAll('.tree-item').forEach(item => {
+      item.classList.remove('search-result');
+    });
+
+    results.forEach(file => {
+      const fileEl = document.querySelector(`[data-file-id="${file.id}"]`);
+      if (fileEl) {
+        fileEl.classList.add('search-result');
+      }
+    });
+  }
+
+  // 修复行号和状态栏管理
+  function updateStatusBar() {
+    const text = editor.value;
+    const lines = text.split('\n');
+    const cursorPos = editor.selectionStart;
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const linesBeforeCursor = textBeforeCursor.split('\n');
+
+    const currentLine = linesBeforeCursor.length;
+    const currentCol = linesBeforeCursor[linesBeforeCursor.length - 1].length + 1;
+    const wordCount = text.replace(/\s+/g, ' ').trim().length;
+
+    document.getElementById('currentLine').textContent = currentLine;
+    document.getElementById('currentCol').textContent = currentCol;
+    document.getElementById('wordCount').textContent = wordCount;
+
+    // 高亮当前行号
+    document.querySelectorAll('.line-number').forEach((el, index) => {
+      el.classList.toggle('active', index + 1 === currentLine);
+    });
+  }
+
+  function gotoSpecificLine(lineNumber) {
+    const lines = editor.value.split('\n');
+    if (lineNumber > lines.length) return;
+
+    let position = 0;
+    for (let i = 0; i < lineNumber - 1; i++) {
+      position += lines[i].length + 1; // +1 for newline
+    }
+
+    editor.focus();
+    editor.setSelectionRange(position, position);
+    updateStatusBar();
+  }
+
+  // 跳转行功能
+  function showGotoLine() {
+    if (isEditorLocked) return;
+    const gotoLineEl = document.getElementById('gotoLine');
+    gotoLineEl.style.display = 'block';
+    document.getElementById('gotoLineInput').focus();
+  }
+
+  function hideGotoLine() {
+    document.getElementById('gotoLine').style.display = 'none';
+  }
+
+  function gotoLine() {
+    const lineNumber = parseInt(document.getElementById('gotoLineInput').value);
+    if (lineNumber && lineNumber > 0) {
+      gotoSpecificLine(lineNumber);
+      hideGotoLine();
+    }
+  }
+
+  // 清空编辑器确认
+  function confirmClearEditor() {
+    if (isEditorLocked) return;
+    if (confirm('确定要清空编辑器内容吗？此操作不可撤销。')) {
+      editor.value = '';
+      updatePreview();
+      updateLineNumbers();
+      updateStatusBar();
+      markAsUnsaved();
+      showNotification('🗑️ 编辑器已清空', 'warning');
+    }
+  }
+
+  // 实时预览更新
+  function updatePreview() {
+    const markdown = editor.value;
+    const html = parser.parse(markdown);
+    preview.innerHTML = html;
+  }
+
+  // 监听编辑器变化
+  editor.addEventListener('input', function() {
+    if (isEditorLocked) return;
+
+    updatePreview();
+    updateLineNumbers();
+    updateStatusBar();
+    markAsUnsaved();
+    createTempFileIfNeeded();
+
+    // 延迟自动保存
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(autoSave, 5000); // 5秒后自动保存
+  });
+
+  editor.addEventListener('selectionchange', updateStatusBar);
+  editor.addEventListener('keyup', updateStatusBar);
+  editor.addEventListener('mouseup', updateStatusBar);
+
+  // 文件状态管理
+  function markAsUnsaved() {
+    if (saveStatus !== 'unsaved' && saveStatus !== 'closed') {
+      saveStatus = 'unsaved';
+      updateSaveStatus();
+      updateToolbarState();
+    }
+  }
+
+  function markAsSaved() {
+    if (saveStatus !== 'saved') {
+      saveStatus = 'saved';
+      updateSaveStatus();
+      updateToolbarState();
+    }
+  }
+
+  function markAsSaving() {
+    saveStatus = 'saving';
+    updateSaveStatus();
+    updateToolbarState();
+  }
+
+  function updateSaveStatus() {
+    const indicator = document.getElementById('saveIndicator');
+    const text = document.getElementById('saveStatusText');
+
+    indicator.className = `save-indicator ${saveStatus}`;
+
+    switch (saveStatus) {
+      case 'saved':
+        text.textContent = '已保存';
+        break;
+      case 'unsaved':
+        text.textContent = currentFileId ? '未保存' : '临时文件';
+        break;
+      case 'saving':
+        text.textContent = '保存中...';
+        break;
+      case 'closed':
+        text.textContent = '已关闭';
+        break;
+    }
+  }
+
+  function updateFileInfo() {
+    const fileNameEl = document.querySelector('.file-name');
+    if (saveStatus === 'closed') {
+      fileNameEl.textContent = '无文件';
+      fileNameEl.className = 'file-name no-file';
+    } else {
+      fileNameEl.textContent = currentFileName;
+      fileNameEl.className = 'file-name';
+    }
+    fileNameEl.title = currentFileName;
+  }
+
+  // 自动保存
+  async function autoSave() {
+    if (currentFileId && saveStatus === 'unsaved') {
+      markAsSaving();
+      try {
+        await saveCurrentFile();
+        showNotification('💾 已自动保存', 'success', 2000);
+      } catch (error) {
+        markAsUnsaved();
+        showNotification('❌ 自动保存失败', 'warning');
+      }
+    }
+  }
+
+  // 主题管理
+  function setTheme(theme) {
+    currentTheme = theme;
+    document.body.className = theme === 'light' ? '' : `theme-${theme}`;
+    localStorage.setItem('markdown-editor-theme', theme);
+    updateThemeButtons();
+  }
+
+  function loadTheme() {
+    const savedTheme = localStorage.getItem('markdown-editor-theme') || 'light';
+    setTheme(savedTheme);
+  }
+
+  function updateThemeButtons() {
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.querySelector(`.theme-btn.${currentTheme}`).classList.add('active');
+  }
+
+  // 工具栏功能
+  function insertMarkdown(before, after = '') {
+    if (isEditorLocked) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const selectedText = editor.value.substring(start, end);
+    const newText = before + selectedText + after;
+
+    editor.value = editor.value.substring(0, start) + newText + editor.value.substring(end);
+    editor.selectionStart = start + before.length;
+    editor.selectionEnd = start + before.length + selectedText.length;
+    editor.focus();
+    updatePreview();
+    updateLineNumbers();
+    markAsUnsaved();
+  }
+
+  function insertQuote() {
+    if (isEditorLocked) return;
+    insertAtLineStart('> ');
+  }
+
+  function insertDivider() {
+    if (isEditorLocked) return;
+    const divider = '\n\n---\n\n';
+    const start = editor.selectionStart;
+    editor.value = editor.value.substring(0, start) + divider + editor.value.substring(start);
+    editor.selectionStart = start + divider.length;
+    editor.focus();
+    updatePreview();
+    updateLineNumbers();
+    markAsUnsaved();
+  }
+
+  function insertAtLineStart(prefix) {
+    if (isEditorLocked) return;
+
+    const start = editor.selectionStart;
+    const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+
+    editor.value = editor.value.substring(0, lineStart) + prefix + editor.value.substring(lineStart);
+    editor.selectionStart = start + prefix.length;
+    editor.selectionEnd = start + prefix.length;
+    editor.focus();
+    updatePreview();
+    updateLineNumbers();
+    markAsUnsaved();
+  }
+
+  function insertLink() {
+    if (isEditorLocked) return;
+    const url = prompt('请输入链接地址:');
+    if (url) {
+      const text = prompt('请输入链接文本:') || url;
+      insertMarkdown(`[${text}](`, `${url})`);
+    }
+  }
+
+  function insertImage() {
+    if (isEditorLocked) return;
+    const url = prompt('请输入图片地址:');
+    if (url) {
+      const alt = prompt('请输入图片描述:') || '图片';
+      insertMarkdown(`![${alt}](`, `${url})`);
+    }
+  }
+
+  // 表格编辑器
+  function openTableEditor() {
+    if (isEditorLocked) return;
+    document.getElementById('tableModal').style.display = 'block';
+    generateTable();
+  }
+
+  function closeTableModal() {
+    document.getElementById('tableModal').style.display = 'none';
+  }
+
+  function generateTable() {
+    const rows = parseInt(document.getElementById('tableRows').value);
+    const cols = parseInt(document.getElementById('tableCols').value);
+    const alternateRows = document.getElementById('alternateRows').checked;
+    const tableEditor = document.getElementById('tableEditor');
+
+    let tableHTML = '<table><thead><tr>';
+
+    // 表头
+    for (let j = 0; j < cols; j++) {
+      tableHTML += `<th><input type="text" placeholder="列${j + 1}" value="列${j + 1}"></th>`;
+    }
+    tableHTML += '</tr></thead><tbody>';
+
+    // 表格内容
+    for (let i = 0; i < rows; i++) {
+      const rowClass = alternateRows && i % 2 === 1 ? ' style="background: var(--button-bg);"' : '';
+      tableHTML += `<tr${rowClass}>`;
+      for (let j = 0; j < cols; j++) {
+        tableHTML += `<td><input type="text" placeholder="数据${i + 1}-${j + 1}"></td>`;
+      }
+      tableHTML += '</tr>';
+    }
+    tableHTML += '</tbody></table>';
+
+    tableEditor.innerHTML = tableHTML;
+  }
+
+  function addTableRow() {
+    const currentRows = parseInt(document.getElementById('tableRows').value);
+    document.getElementById('tableRows').value = currentRows + 1;
+    generateTable();
+  }
+
+  function addTableCol() {
+    const currentCols = parseInt(document.getElementById('tableCols').value);
+    document.getElementById('tableCols').value = currentCols + 1;
+    generateTable();
+  }
+
+  function clearTable() {
+    if (confirm('确定要清空表格内容吗？')) {
+      document.querySelectorAll('#tableEditor input').forEach(input => input.value = '');
+    }
+  }
+
+  function resetTable() {
+    if (confirm('确定要重置整个表格吗？')) {
+      document.getElementById('tableRows').value = 3;
+      document.getElementById('tableCols').value = 3;
+      generateTable();
+    }
+  }
+
+  // Excel 粘贴功能
+  function focusPasteArea() {
+    const pasteInput = document.getElementById('pasteInput');
+    pasteInput.focus();
+    pasteInput.select();
+  }
+
+  document.getElementById('pasteInput').addEventListener('paste', function(e) {
+    setTimeout(() => {
+      const pastedData = e.target.value;
+      if (pastedData.trim()) {
+        parseExcelData(pastedData);
+        e.target.value = '';
+      }
+    }, 100);
+  });
+
+  function parseExcelData(data) {
+    const lines = data.split('\n').filter(line => line.trim());
+    if (lines.length === 0) return;
+
+    const rows = lines.map(line => line.split('\t'));
+    const maxCols = Math.max(...rows.map(row => row.length));
+
+    // 设置表格尺寸
+    document.getElementById('tableRows').value = Math.max(1, rows.length - 1);
+    document.getElementById('tableCols').value = maxCols;
+
+    // 生成表格
+    generateTable();
+
+    // 填充数据
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('#tableEditor input');
+      let inputIndex = 0;
+
+      // 填充表头
+      for (let j = 0; j < maxCols; j++) {
+        if (inputs[inputIndex]) {
+          inputs[inputIndex].value = rows[0][j] || `列${j + 1}`;
+          inputIndex++;
+        }
+      }
+
+      // 填充数据行
+      for (let i = 1; i < rows.length; i++) {
+        for (let j = 0; j < maxCols; j++) {
+          if (inputs[inputIndex]) {
+            inputs[inputIndex].value = rows[i][j] || '';
+            inputIndex++;
+          }
+        }
+      }
+
+      document.getElementById('pasteArea').innerHTML = '<div style="color: var(--success-color);">✅ 已成功导入 Excel 数据！</div>';
+      setTimeout(() => {
+        document.getElementById('pasteArea').innerHTML = `
+                        <div style="font-size: 16px; margin-bottom: 8px;">📋 Excel 数据导入</div>
+                        <div>从 Excel 复制表格数据，然后点击这里粘贴</div>
+                    `;
+      }, 2000);
+    }, 100);
+  }
+
+  function insertTableFromEditor() {
+    const table = document.querySelector('#tableEditor table');
+    const headerCells = Array.from(table.querySelectorAll('thead input')).map(input => input.value || '列');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+    let markdown = '\n| ' + headerCells.join(' | ') + ' |\n';
+    markdown += '|' + headerCells.map(() => '-----').join('|') + '|\n';
+
+    rows.forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td input')).map(input => input.value || '');
+      markdown += '| ' + cells.join(' | ') + ' |\n';
+    });
+
+    markdown += '\n';
+
+    const start = editor.selectionStart;
+    editor.value = editor.value.substring(0, start) + markdown + editor.value.substring(start);
+    editor.selectionStart = start + markdown.length;
+    editor.focus();
+    updatePreview();
+    updateLineNumbers();
+    markAsUnsaved();
+    closeTableModal();
+    showNotification('📊 表格插入成功！', 'success');
+  }
+
+  // 代码块编辑器
+  function openCodeBlock() {
+    if (isEditorLocked) return;
+    document.getElementById('codeModal').style.display = 'block';
+    document.getElementById('codeContent').focus();
+  }
+
+  function closeCodeModal() {
+    document.getElementById('codeModal').style.display = 'none';
+    document.getElementById('codeContent').value = '';
+    document.getElementById('codeLanguage').value = '';
+  }
+
+  function insertCodeFromModal() {
+    const language = document.getElementById('codeLanguage').value;
+    const content = document.getElementById('codeContent').value;
+
+    const codeBlock = `\n\`\`\`${language}\n${content}\n\`\`\`\n\n`;
+
+    const start = editor.selectionStart;
+    editor.value = editor.value.substring(0, start) + codeBlock + editor.value.substring(start);
+    editor.selectionStart = start + codeBlock.length;
+    editor.focus();
+    updatePreview();
+    updateLineNumbers();
+    markAsUnsaved();
+    closeCodeModal();
+    showNotification('💻 代码块插入成功！', 'success');
+  }
+
+  // 文件管理 - 修复目录树结构
+  async function loadFileTree() {
+    allFiles = await fileManager.getFiles();
+    const tree = document.getElementById('fileTree');
+    tree.innerHTML = '';
+
+    // 构建层级结构
+    buildTreeLevel(tree, null, 0);
+
+    // 如果没有文件，创建默认结构
+    if (allFiles.length === 0) {
+      await createDefaultStructure();
+      loadFileTree();
+    }
+  }
+
+  function buildTreeLevel(container, parentId, level) {
+    // 获取当前层级的文件夹和文件
+    const folders = allFiles.filter(f => f.type === 'folder' && f.parentId === parentId);
+    const files = allFiles.filter(f => f.type === 'file' && f.parentId === parentId);
+
+    // 先渲染文件夹
+    folders.forEach(folder => {
+      const treeItem = createTreeItem(folder, level, true);
+      container.appendChild(treeItem);
+
+      // 如果文件夹展开，递归渲染子项
+      if (expandedFolders.has(folder.id)) {
+        buildTreeLevel(container, folder.id, level + 1);
+      }
+    });
+
+    // 再渲染文件
+    files.forEach(file => {
+      const treeItem = createTreeItem(file, level, false);
+      container.appendChild(treeItem);
+    });
+  }
+
+  function createTreeItem(item, level, isFolder) {
+    const treeItem = document.createElement('div');
+    treeItem.className = 'tree-item';
+    treeItem.style.paddingLeft = `${level * 16 + 8}px`;
+
+    if (isFolder) {
+      treeItem.setAttribute('data-folder-id', item.id);
+    } else {
+      treeItem.setAttribute('data-file-id', item.id);
+    }
+
+    let content = `<span class="tree-indent" style="width: ${level * 16}px;"></span>`;
+
+    if (isFolder) {
+      const hasChildren = allFiles.some(f => f.parentId === item.id);
+      const isExpanded = expandedFolders.has(item.id);
+
+      content += `
+                    <span class="tree-toggle ${isExpanded ? 'expanded' : ''}"
+                          onclick="toggleTreeFolder('${item.id}')"
+                          style="visibility: ${hasChildren ? 'visible' : 'hidden'}">
+                        ▶
+                    </span>
+                    <span class="tree-icon">📁</span>
+                    <span class="tree-label" onclick="selectTreeItem('${item.id}', 'folder')"
+                          oncontextmenu="showContextMenu(event, '${item.id}', 'folder')">${item.name}</span>
+                `;
+    } else {
+      content += `
+                    <span style="width: 16px; display: inline-block;"></span>
+                    <span class="tree-icon">📄</span>
+                    <span class="tree-label" onclick="loadFileFromTree('${item.id}')"
+                          oncontextmenu="showContextMenu(event, '${item.id}', 'file')">${item.name}</span>
+                `;
+
+      // 高亮当前文件
+      if (item.id === currentFileId) {
+        treeItem.classList.add('current');
+      }
+    }
+
+    treeItem.innerHTML = content;
+    return treeItem;
+  }
+
+  function toggleTreeFolder(folderId) {
+    const isExpanded = expandedFolders.has(folderId);
+
+    if (isExpanded) {
+      expandedFolders.delete(folderId);
+    } else {
+      expandedFolders.add(folderId);
+    }
+
+    // 重新渲染树
+    loadFileTree();
+  }
+
+  function selectTreeItem(itemId, type) {
+    // 可以在这里添加选择项目的逻辑
+  }
+
+  async function loadFileFromTree(fileId) {
+    const file = allFiles.find(f => f.id === fileId);
+    if (file) {
+      await loadFileContent(file);
+    }
+  }
+
+  // 右键菜单
+  function showContextMenu(event, fileId, type) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    selectedFileForContext = { id: fileId, type: type };
+
+    const contextMenu = document.getElementById('contextMenu');
+    contextMenu.style.display = 'block';
+    contextMenu.style.left = event.pageX + 'px';
+    contextMenu.style.top = event.pageY + 'px';
+  }
+
+  function hideContextMenu() {
+    document.getElementById('contextMenu').style.display = 'none';
+    selectedFileForContext = null;
+  }
+
+  // 点击其他地方隐藏菜单
+  document.addEventListener('click', hideContextMenu);
+
+  async function openSelectedFile() {
+    if (selectedFileForContext && selectedFileForContext.type === 'file') {
+      const file = allFiles.find(f => f.id === selectedFileForContext.id);
+      if (file) {
+        await loadFileContent(file);
+      }
+    }
+    hideContextMenu();
+  }
+
+  async function renameFile() {
+    if (!selectedFileForContext) return;
+
+    const file = allFiles.find(f => f.id === selectedFileForContext.id);
+
+    if (file) {
+      const newName = prompt('请输入新名称:', file.name);
+      if (newName && newName !== file.name) {
+        file.name = newName;
+        file.updatedAt = new Date().toISOString();
+        await fileManager.saveFile(file);
+
+        if (file.id === currentFileId) {
+          currentFileName = newName;
+          updateFileInfo();
+        }
+
+        loadFileTree();
+        showNotification('✏️ 重命名成功！', 'success');
+      }
+    }
+    hideContextMenu();
+  }
+
+  // 修复移动文件功能
+  async function moveFile() {
+    if (!selectedFileForContext) return;
+
+    const selectedItem = allFiles.find(f => f.id === selectedFileForContext.id);
+
+    if (!selectedItem) {
+        showNotification('❌ 未找到选中的项目', 'warning');
+        hideContextMenu();
+        return;
+    }
+
+    // 保存当前选中的文件/文件夹信息
+    const moveItem = {
+        id: selectedFileForContext.id,
+        type: selectedFileForContext.type,
+        name: selectedItem.name
+    };
+
+    // 设置移动项目名称
+    document.getElementById('moveItemName').textContent = moveItem.name;
+
+    // 构建文件夹列表（排除自己，如果是文件夹的话）
+    const folders = allFiles.filter(f =>
+            f.type === 'folder' &&
+            f.id !== moveItem.id &&
+            !isChildFolder(f.id, moveItem.id, allFiles)
+    );
+
+    const folderList = document.getElementById('folderList');
+    folderList.innerHTML = `
+                <div class="folder-item" onclick="selectFolderForMove(null)" data-folder-id="modal-root">
+                    📁 根目录
+                </div>
+            `;
+
+    folders.forEach(folder => {
+        const folderItem = document.createElement('div');
+        folderItem.className = 'folder-item';
+        folderItem.setAttribute('data-folder-id', `modal-${folder.id}`);
+        folderItem.onclick = () => selectFolderForMove(folder.id);
+
+        const path = getFolderPath(folder.parentId, allFiles);
+        const displayPath = path === '根目录' ? folder.name : `${path} / ${folder.name}`;
+        folderItem.innerHTML = `📁 ${displayPath}`;
+        folderList.appendChild(folderItem);
+    });
+
+    // 将选中项存储在模态框的数据属性中
+    document.getElementById('moveFileModal').setAttribute('data-moving-item', JSON.stringify(moveItem));
+
+    document.getElementById('moveFileModal').style.display = 'block';
+    hideContextMenu();
+  }
+
+  // 检查是否为子文件夹
+  function isChildFolder(folderId, parentId, files) {
+    const folder = files.find(f => f.id === folderId);
+    if (!folder || !folder.parentId) return false;
+
+    if (folder.parentId === parentId) return true;
+    return isChildFolder(folder.parentId, parentId, files);
+  }
+
+  function selectFolderForMove(folderId) {
+    selectedFolderForMove = folderId;
+
+    // 高亮选中的文件夹
+    document.querySelectorAll('#folderList .folder-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+
+    // 找到对应的元素并高亮
+    const targetElement = document.querySelector(`[data-folder-id="${folderId === null ? 'modal-root' : `modal-${folderId}`}"]`); // 使用前缀匹配
+    if (targetElement) {
+      targetElement.classList.add('selected');
+    }
+  }
+
+  async function confirmMoveFile() {
+    const moveItemStr = document.getElementById('moveFileModal').getAttribute('data-moving-item');
+    if (!moveItemStr) {
+        showNotification('❌ 没有选中要移动的项目', 'warning');
+        return;
+    }
+
+    const moveItem = JSON.parse(moveItemStr);
+    if (!moveItem) {
+        showNotification('❌ 移动项目无效', 'warning');
+        return;
+    }
+
+    const file = allFiles.find(f => f.id === moveItem.id);
+
+    if (file) {
+        const oldParentId = file.parentId;
+        file.parentId = selectedFolderForMove; // 直接使用原始 id，无需转换
+        file.updatedAt = new Date().toISOString();
+        await fileManager.saveFile(file);
+
+        // 获取目标文件夹名称用于提示
+        let targetFolderName = '根目录';
+        if (selectedFolderForMove) {
+            const targetFolder = allFiles.find(f => f.id === selectedFolderForMove);
+            if (targetFolder) {
+                targetFolderName = targetFolder.name;
+            }
+        }
+
+        loadFileTree();
+        showNotification(`📁 ${file.name} 已移动到 "${targetFolderName}"！`, 'success');
+    } else {
+        showNotification('❌ 移动失败，未找到文件', 'warning');
+    }
+
+    closeMoveFileModal();
+  }
+
+  function closeMoveFileModal() {
+    document.getElementById('moveFileModal').removeAttribute('data-moving-item');
+    document.getElementById('moveFileModal').style.display = 'none';
+    selectedFolderForMove = undefined; // 重置为 undefined
+  }
+
+  async function deleteFileConfirm() {
+    if (!selectedFileForContext) return;
+
+    const file = allFiles.find(f => f.id === selectedFileForContext.id);
+
+    if (file && confirm(`确定要删除 "${file.name}" 吗？此操作不可撤销。`)) {
+      // 如果是文件夹，需要删除所有子项
+      if (file.type === 'folder') {
+        const childItems = getAllChildItems(file.id, allFiles);
+        for (const childItem of childItems) {
+          await fileManager.deleteFile(childItem.id);
+        }
+      }
+
+      await fileManager.deleteFile(file.id);
+
+      if (file.id === currentFileId) {
+        closeCurrentFile();
+      }
+
+      loadFileTree();
+      showNotification('🗑️ 删除成功！', 'warning');
+    }
+    hideContextMenu();
+  }
+
+  // 获取所有子项
+  function getAllChildItems(parentId, files) {
+    const children = files.filter(f => f.parentId === parentId);
+    let allChildren = [...children];
+
+    children.filter(f => f.type === 'folder').forEach(folder => {
+      allChildren = allChildren.concat(getAllChildItems(folder.id, files));
+    });
+
+    return allChildren;
+  }
+
+  async function createFolder() {
+    const name = prompt('请输入文件夹名称:');
+    if (name) {
+      const folder = {
+        id: fileManager.generateId(),
+        name: name,
+        type: 'folder',
+        parentId: null,
+        createdAt: new Date().toISOString()
+      };
+
+      await fileManager.saveFile(folder);
+      loadFileTree();
+      showNotification('📁 文件夹创建成功！', 'success');
+    }
+  }
+
+  async function createDefaultStructure() {
+    const defaultFolder = {
+      id: fileManager.generateId(),
+      name: '我的文档',
+      type: 'folder',
+      parentId: null,
+      createdAt: new Date().toISOString()
+    };
+
+    const tempFolder = {
+      id: fileManager.generateId(),
+      name: '临时文件',
+      type: 'folder',
+      parentId: null,
+      createdAt: new Date().toISOString()
+    };
+
+    const welcomeFile = {
+      id: fileManager.generateId(),
+      name: '欢迎文档.md',
+      type: 'file',
+      parentId: defaultFolder.id,
+      content: editor.value,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await fileManager.saveFile(defaultFolder);
+    await fileManager.saveFile(tempFolder);
+    await fileManager.saveFile(welcomeFile);
+
+    tempFolderId = tempFolder.id;
+  }
+
+  async function loadFileContent(file) {
+    // 如果有未保存的内容，先保存
+    if (currentFileId && saveStatus === 'unsaved') {
+      if (confirm('当前文档有未保存的更改，是否保存？')) {
+        markAsSaving();
+        await saveCurrentFile();
+      }
+    }
+
+    // 解锁编辑器
+    unlockEditor();
+
+    // 加载新文件
+    editor.value = file.content || '';
+    currentFileId = file.id;
+    currentFileName = file.name;
+    saveStatus = 'saved';
+
+    updatePreview();
+    updateLineNumbers();
+    updateStatusBar();
+    updateFileInfo();
+    updateSaveStatus();
+    updateToolbarState();
+
+    // 更新UI
+    loadFileTree();
+
+    showNotification(`📖 已打开: ${file.name}`, 'info');
+  }
+
+  async function saveCurrentFile() {
+    if (!currentFileId) return;
+
+    const currentFile = allFiles.find(f => f.id === currentFileId);
+
+    if (currentFile) {
+      currentFile.content = editor.value;
+      currentFile.updatedAt = new Date().toISOString();
+      await fileManager.saveFile(currentFile);
+      markAsSaved();
+    }
+  }
+
+  async function saveFile() {
+    if (isEditorLocked) return;
+
+    markAsSaving();
+
+    try {
+      if (currentFileId) {
+        await saveCurrentFile();
+        showNotification('💾 文件保存成功！', 'success');
+      } else {
+        const name = prompt('请输入文件名:');
+        if (name) {
+          const file = {
+            id: fileManager.generateId(),
+            name: name.endsWith('.md') ? name : name + '.md',
+            type: 'file',
+            parentId: tempFolderId, // 默认保存到临时文件夹
+            content: editor.value,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          await fileManager.saveFile(file);
+          currentFileId = file.id;
+          currentFileName = file.name;
+          markAsSaved();
+          updateFileInfo();
+          loadFileTree();
+          showNotification('💾 文件创建并保存成功！', 'success');
+        } else {
+          markAsUnsaved();
+        }
+      }
+    } catch (error) {
+      markAsUnsaved();
+      showNotification('❌ 保存失败，请重试', 'warning');
+    }
+  }
+
+  async function exportData() {
+    const files = await fileManager.getFiles();
+    const dataStr = JSON.stringify(files, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `markdown-editor-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showNotification('📤 数据导出成功！', 'success');
+  }
+
+  function importData() {
+    document.getElementById('importInput').click();
+  }
+
+  async function handleImport(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+
+          if (confirm('导入数据将覆盖现有文件，确定继续吗？')) {
+            // 清空现有数据
+            const existingFiles = await fileManager.getFiles();
+            for (const file of existingFiles) {
+              await fileManager.deleteFile(file.id);
+            }
+
+            // 导入新数据
+            for (const file of data) {
+              await fileManager.saveFile(file);
+            }
+
+            // 重新初始化
+            await ensureTempFolder();
+            closeCurrentFile();
+
+            loadFileTree();
+            showNotification('📥 数据导入成功！', 'success');
+          }
+        } catch (error) {
+          showNotification('❌ 导入失败，请检查文件格式', 'warning');
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // 文件操作
+  function loadFile(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // 解锁编辑器
+        unlockEditor();
+
+        editor.value = e.target.result;
+
+        // 重置为临时文件状态
+        markAsTempFile();
+
+        updatePreview();
+        updateLineNumbers();
+        updateStatusBar();
+        showNotification(`📁 文件 "${file.name}" 加载成功！`, 'success');
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // 切换面板
+  function togglePreview() {
+    previewVisible = !previewVisible;
+    if (previewVisible) {
+      previewSection.classList.remove('hidden');
+      togglePreviewButton.innerHTML = '👁️ 预览';
+      togglePreviewButton.classList.remove('active');
+    } else {
+      previewSection.classList.add('hidden');
+      togglePreviewButton.innerHTML = '👁️ 显示预览';
+      togglePreviewButton.classList.add('active');
+    }
+  }
+
+  function toggleFilePanel() {
+    filePanelVisible = !filePanelVisible;
+    if (filePanelVisible) {
+      filePanel.classList.remove('hidden');
+      toggleFilePanelButton.innerHTML = '📂 文件';
+      toggleFilePanelButton.classList.remove('active');
+    } else {
+      filePanel.classList.add('hidden');
+      toggleFilePanelButton.innerHTML = '📂 显示文件';
+      toggleFilePanelButton.classList.add('active');
+    }
+  }
+
+  // 键盘快捷键
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      switch(e.key) {
+        case 'n':
+          e.preventDefault();
+          openNewFileModal();
+          break;
+        case 'f':
+          if (e.shiftKey) {
+            e.preventDefault();
+            openSearchModal();
+          }
+          break;
+        case 'b':
+          if (!isEditorLocked) {
+            e.preventDefault();
+            insertMarkdown('**', '**');
+          }
+          break;
+        case 'i':
+          if (!isEditorLocked) {
+            e.preventDefault();
+            insertMarkdown('*', '*');
+          }
+          break;
+        case 's':
+          e.preventDefault();
+          saveFile();
+          break;
+        case 'g':
+          e.preventDefault();
+          showGotoLine();
+          break;
+      }
+    }
+
+    if (e.ctrlKey && e.altKey && e.key === 'c') {
+      e.preventDefault();
+      confirmClearEditor();
+    }
+
+    // 跳转行功能中的回车键
+    if (e.key === 'Enter' && document.getElementById('gotoLine').style.display === 'block') {
+      e.preventDefault();
+      gotoLine();
+    }
+
+    // Esc 键隐藏跳转行和搜索
+    if (e.key === 'Escape') {
+      hideGotoLine();
+      hideContextMenu();
+      closeSearchModal();
+      closeNewFileModal();
+    }
+  });
+
+  editor.addEventListener('keydown', function(e) {
+    if (isEditorLocked) return;
+
+    // Tab 键处理
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 4;
+      updateLineNumbers();
+      markAsUnsaved();
+    }
+  });
+
+  // 点击模态框外部关闭
+  window.onclick = function(event) {
+    const tableModal = document.getElementById('tableModal');
+    const codeModal = document.getElementById('codeModal');
+    const moveFileModal = document.getElementById('moveFileModal');
+    const newFileModal = document.getElementById('newFileModal');
+    const searchModal = document.getElementById('searchModal');
+
+    if (event.target === tableModal) {
+      closeTableModal();
+    }
+    if (event.target === codeModal) {
+      closeCodeModal();
+    }
+    if (event.target === moveFileModal) {
+      closeMoveFileModal();
+    }
+    if (event.target === newFileModal) {
+      closeNewFileModal();
+    }
+    if (event.target === searchModal) {
+      closeSearchModal();
+    }
+  }
+
+  // 页面关闭前提醒保存
+  window.addEventListener('beforeunload', function(e) {
+    if (saveStatus === 'unsaved') {
+      e.preventDefault();
+      e.returnValue = '有未保存的更改，确定要离开吗？';
+      return e.returnValue;
+    }
+  });
+</script>
+</body>
+</html>
